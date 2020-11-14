@@ -23,4 +23,5 @@ def plot_learning_curve(x, scores, epsilons, filename):
     ax2.yaxis.set_label_position('right')
     ax2.tick_params(axis='y', color="C1")
 
+    plt.show()
     plt.savefig(filename)

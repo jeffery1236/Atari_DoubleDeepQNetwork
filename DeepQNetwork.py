@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch as T
+from torch.utils.tensorboard.writer import SummaryWriter
 import os
 import numpy as np
 
@@ -38,7 +39,6 @@ class DeepQNetwork(nn.Module):
         return int(np.prod(conv3.size()))
 
     def forward(self, input_data):
-        input_data = T.tensor(input_data)
         input_data = input_data.float()
 
         conv1 = F.relu(self.conv1(input_data))
@@ -57,7 +57,7 @@ class DeepQNetwork(nn.Module):
         T.save(self.state_dict(), self.checkpoint_file)
         # return filepath
     
-    def load(self, filepath): 
+    def load(self): 
         print("---Loading checkpoint---")
         state_dict = T.load(self.checkpoint_file)
         self.load_state_dict(state_dict)

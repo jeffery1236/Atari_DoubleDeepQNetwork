@@ -1,13 +1,15 @@
+import os
 import numpy as np
 import torch as T
+from torch.utils.tensorboard.writer import SummaryWriter
 from DeepQNetwork import DeepQNetwork
 from replay_memory import ReplayBuffer
 
-class DDQAgent():
+class DoubleDQAgent():
     def __init__(self, lr:float, gamma:float, obs_dims,
                  num_actions:int, mem_size, mini_batchsize,
-                 epsilon_dec, env_name, algo_name,
-                 epsilon_min=0.1, checkpoint_dir='temp/dqn'):
+                 epsilon_dec, env_name, algo_name, epsilon=1.0, replace=1000,
+                 epsilon_min=0.1, checkpoint_dir='results\\doubledqn'):
 
         self.lr = lr
         self.gamma = gamma
@@ -16,7 +18,8 @@ class DDQAgent():
         self.mini_batchsize = mini_batchsize
         self.epsilon_min = epsilon_min
         self.epsilon_dec = epsilon_dec
-        self.epsilon = 1.0
+        self.epsilon = epsilon
+        self.replace_target_cnt = replace
         
         self.mem_counter = 0
         self.copy_counter = 0
@@ -29,7 +32,7 @@ class DDQAgent():
         self.learning_network = DeepQNetwork(lr=self.lr, 
                               num_actions=self.num_actions,
                               input_dims=self.obs_dims, 
-                              name=env_name+'_'+algo_name+'_learning', 
+                              name=algo_name+'_'+env_name+'_'+'learning', 
                               checkpoint_dir=self.checkpoint_dir)
 
         self.target_network = DeepQNetwork(lr=self.lr, 
@@ -37,6 +40,9 @@ class DDQAgent():
                               input_dims=self.obs_dims, 
                               name=env_name+'_'+algo_name+'_target', 
                               checkpoint_dir=self.checkpoint_dir)
+        
+        self.loss_value = 0
+        self.writer = SummaryWriter(os.path.join(self.checkpoint_dir, 'logs'))
 
     def decrement_epsilon(self):
         if self.epsilon > self.epsilon_min:
@@ -64,7 +70,6 @@ class DDQAgent():
         if np.random.random() < self.epsilon:
             action = np.random.choice(len(self.action_space), 1)[0]
         else:
-            # obs = np.array([obs])
             state = T.tensor([obs], dtype=T.float).to(self.learning_network.device)
 
             returns_for_actions = self.target_network.forward(state)
@@ -77,9 +82,6 @@ class DDQAgent():
         
         self.learning_network.optimizer.zero_grad()
         states, actions, rewards, new_states, dones = self.sample_memory()
-        
-        # print(f'---Actions shape: {actions.size()}')
-        # print(f'---Actions: {actions}')
 
         indices = np.arange(self.mini_batchsize)
         q_pred = self.learning_network.forward(states)[indices, actions]
@@ -97,9 +99,23 @@ class DDQAgent():
 
         self.decrement_epsilon()
 
-        if self.copy_counter % 4 == 0:
+        if self.copy_counter % self.replace_target_cnt == 0:
             self.copy_target_network()
         self.copy_counter += 1
+        
+        self.loss_value = cost
+        
+    def log(self, num_episode):
+        diff = 0
+        for p_learning, p_target in zip(self.learning_network.parameters(), self.target_network.parameters()):
+            p_learning = p_learning.data.cpu()
+            p_target = p_target.data.cpu()
+            diff += T.sum(p_learning - p_target)
+            
+        self.writer.add_scalar("td_error", self.loss_value, num_episode)
+        self.writer.add_scalar("learning_target_diff", diff, num_episode)
+        
+        return diff
         
     def copy_target_network(self):
         self.target_network.load_state_dict(self.learning_network.state_dict())
