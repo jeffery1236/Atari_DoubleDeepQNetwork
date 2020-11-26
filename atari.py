@@ -13,7 +13,7 @@ if __name__ == '__main__':
     n_games = 500
     print(f'Input_dims: {env.observation_space.shape}')
     
-    agent = DoubleDQAgent(lr=0.0001, gamma=0.99, 
+    agent = MeanTeacherAgent(lr=0.0001, gamma=0.99, 
                     obs_dims=env.observation_space.shape,
                     num_actions=env.action_space.n, 
                     mem_size=50000,
@@ -44,11 +44,11 @@ if __name__ == '__main__':
                 agent.store_memory(observation, action, reward,
                                    new_observation, done)
                 agent.learn()
-            
+
+            agent.log(i)  # log td_error and learing_target_diff on tensorboard
             observation = new_observation
             n_steps += 1
         
-        agent.log(i)  # log td_error and learing_target_diff on tensorboard
         scores.append(score)
         eps_history.append(agent.epsilon)
         steps_arr.append(n_steps)
