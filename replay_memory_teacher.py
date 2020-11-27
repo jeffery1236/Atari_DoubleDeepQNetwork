@@ -35,7 +35,7 @@ class ReplayBufferTeacher():
         
         states = self.state_memory[idx]
         aug_states = self.aug_states_memory[idx]
-        aug_states_flattened =  aug_states.reshape() # stopped here
+        # aug_states_flattened = aug_states.reshape()
         actions = self.action_memory[idx]
         rewards = self.reward_memory[idx]
         new_states = self.new_state_memory[idx]

@@ -1,32 +1,45 @@
+import os
 import gym
 import numpy as np
 from Env_wrappers import make_env
 from utils import plot_learning_curve
+from torch.utils.tensorboard import SummaryWriter
 from DDQAgent import DoubleDQAgent
 from DuelingDQAgent import DuelingDQAgent
+from MeanTeacherAgent import MeanTeacherAgent
 
 if __name__ == '__main__':
     env = make_env('PongNoFrameskip-v4')
+    mode = "Double"
     best_score = -np.inf
     test_mode = False
     render = False
     n_games = 500
     print(f'Input_dims: {env.observation_space.shape}')
-    
-    agent = MeanTeacherAgent(lr=0.0001, gamma=0.99, 
-                    obs_dims=env.observation_space.shape,
-                    num_actions=env.action_space.n, 
-                    mem_size=50000,
-                    mini_batchsize=64, epsilon_dec=(5e-6), epsilon=0.1,
-                    env_name='PongNoFrameskip-v4',
-                    algo_name='DoubleDQAgent')
+
+    if mode == "MeanTeacher":
+        agent = MeanTeacherAgent(lr=0.0001, gamma=0.99, 
+                        obs_dims=env.observation_space.shape,
+                        num_actions=env.action_space.n, 
+                        mem_size=50000,
+                        mini_batchsize=64, epsilon_dec=(5e-6), epsilon=0.1,
+                        env_name='PongNoFrameskip-v4',
+                        algo_name='MeanTeacherAgent')
+    else:
+        agent = DoubleDQAgent(lr=0.0001, gamma=0.99, 
+                        obs_dims=env.observation_space.shape,
+                        num_actions=env.action_space.n, 
+                        mem_size=50000,
+                        mini_batchsize=64, epsilon_dec=(5e-6), epsilon=0.1,
+                        env_name='PongNoFrameskip-v4',
+                        algo_name='DoubleDQAgent')
 
     if test_mode:
         agent.load_models()
 
     n_steps = 0
     scores, eps_history, steps_arr = [], [], []
-
+    writer = SummaryWriter(os.path.join(agent.checkpoint_dir, 'logs'))
     for i in range(n_games):
         done = False
         score = 0
@@ -49,6 +62,7 @@ if __name__ == '__main__':
             observation = new_observation
             n_steps += 1
         
+        writer.add_scalar("Episode scores", score, i)
         scores.append(score)
         eps_history.append(agent.epsilon)
         steps_arr.append(n_steps)
